@@ -1,4 +1,4 @@
-package lexing
+package lexer
 
 type runeNode struct {
 	r    rune

@@ -30,6 +30,7 @@ const (
 	EmptyToken TokenType = 0
 )
 
+// New creates new lexer instance
 func New(src string, initState StateFunc) *L {
 	return &L{
 		source:    src,
@@ -39,9 +40,9 @@ func New(src string, initState StateFunc) *L {
 		initState: initState,
 		rewind:    newRuneStack(),
 	}
-
 }
 
+// Lex starts the lexer machine
 func (l *L) Lex() {
 	go l.run()
 }
@@ -53,54 +54,6 @@ func (l *L) run() {
 	}
 
 	close(l.tokens)
-}
-
-// Current returns the value being being analyzed at this moment.
-func (l *L) Current() string {
-	return l.source[l.start:l.pos]
-}
-
-// Emit will receive a token type and push a new token with the current analyzed
-// value into the tokens channel.
-func (l *L) Emit(t TokenType) {
-	tok := Token{
-		Typ: t,
-		Val: l.Current(),
-	}
-	l.tokens <- tok
-	l.start = l.pos
-	l.rewind.clear()
-}
-
-// Ignore clears the rewind stack and then sets the current beginning pos
-// to the current pos in the source which effectively ignores the section
-// of the source being analyzed.
-func (l *L) Ignore() {
-	l.rewind.clear()
-	l.start = l.pos
-}
-
-// Peek performs a Next operation immediately followed by a Rewind returning the
-// peeked rune.
-func (l *L) Peek() rune {
-	r := l.Next()
-	l.Rewind()
-
-	return r
-}
-
-// Rewind will take the last rune read (if any) and rewind back. Rewinds can
-// occur more than once per call to Next but you can never rewind past the
-// last point a token was emitted.
-func (l *L) Rewind() {
-	r := l.rewind.pop()
-	if r > EOFRune {
-		size := utf8.RuneLen(r)
-		l.pos -= size
-		if l.pos < l.start {
-			l.pos = l.start
-		}
-	}
 }
 
 // Next pulls the next rune from the Lexer and returns it, moving the pos
@@ -122,7 +75,7 @@ func (l *L) Next() rune {
 	return r
 }
 
-// Take receives a string containing all acceptable strings and will contine
+// Take receives a string containing all acceptable strings and will continue
 // over each consecutive character in the source until a token not in the given
 // string is encountered. This should be used to quickly pull token parts.
 func (l *L) Take(chars string) {
@@ -131,6 +84,49 @@ func (l *L) Take(chars string) {
 		r = l.Next()
 	}
 	l.Rewind() // last next wasn't a match
+}
+
+// Emit will receive a token type and push a new token with the current analyzed
+// value into the tokens channel.
+func (l *L) Emit(t TokenType) {
+	tok := Token{
+		Typ: t,
+		Val: l.Current(),
+	}
+	l.tokens <- tok
+	l.start = l.pos
+	l.rewind.clear()
+}
+
+// Peek performs a Next operation immediately followed by a Rewind returning the
+// peeked rune.
+func (l *L) Peek() rune {
+	r := l.Next()
+	l.Rewind()
+
+	return r
+}
+
+// Ignore clears the rewind stack and then sets the current start pos
+// to the current pos in the source which effectively ignores the section
+// of the source being analyzed.
+func (l *L) Ignore() {
+	l.rewind.clear()
+	l.start = l.pos
+}
+
+// Rewind will take the last rune read (if any) and rewind back. Rewinds can
+// occur more than once per call to Next but you can never rewind past the
+// last point a token was emitted.
+func (l *L) Rewind() {
+	r := l.rewind.pop()
+	if r > EOFRune {
+		size := utf8.RuneLen(r)
+		l.pos -= size
+		if l.pos < l.start {
+			l.pos = l.start
+		}
+	}
 }
 
 // NextToken returns the next token from the lexer and a value to denote whether
@@ -143,8 +139,7 @@ func (l *L) NextToken() (*Token, bool) {
 	}
 }
 
-// Partial yyLexer implementation
-
+// Error create new error instance and assign it to Err property
 func (l *L) Error(e string) {
 	if l.ErrorHandler != nil {
 		l.Err = errors.New(e)
@@ -152,4 +147,10 @@ func (l *L) Error(e string) {
 	} else {
 		panic(e)
 	}
+}
+
+// todo: fix race condition problem when Current is used outside package
+// Current returns the value being analyzed at this moment.
+func (l *L) Current() string {
+	return l.source[l.start:l.pos]
 }

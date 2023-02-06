@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := lexer.New(tt.args.src, tt.args.initState); got == nil {
+			if got := lexer.New(tt.args.src, tt.args.initState, nil); got == nil {
 				t.Errorf("New() = %v, want %v", got, tt.want)
 			}
 		})
@@ -56,7 +56,7 @@ func TestStateFunc(t *testing.T) {
 				l.Next()
 				l.Emit(Key)
 				return nil
-			}),
+			}, nil),
 			want: &lexer.Token{
 				Typ: Key,
 				Val: "k",
@@ -68,7 +68,7 @@ func TestStateFunc(t *testing.T) {
 				l.Take("key")
 				l.Emit(Key)
 				return nil
-			}),
+			}, nil),
 			want: &lexer.Token{
 				Typ: Key,
 				Val: "key",
@@ -81,7 +81,7 @@ func TestStateFunc(t *testing.T) {
 				l.Next()
 				l.Emit(Key)
 				return nil
-			}),
+			}, nil),
 			want: &lexer.Token{
 				Typ: Key,
 				Val: "k",
@@ -95,7 +95,7 @@ func TestStateFunc(t *testing.T) {
 				l.Next()
 				l.Emit(Key)
 				return nil
-			}),
+			}, nil),
 			want: &lexer.Token{
 				Typ: Key,
 				Val: "e",
@@ -110,7 +110,7 @@ func TestStateFunc(t *testing.T) {
 				l.Next()
 				l.Emit(Key)
 				return nil
-			}),
+			}, nil),
 			want: &lexer.Token{
 				Typ: Key,
 				Val: "k",
@@ -120,7 +120,7 @@ func TestStateFunc(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.lexer.Lex()
-			got, _ := tt.lexer.NextToken()
+			got, _ := tt.lexer.PopToken()
 
 			if !cmp.Equal(got, tt.want) {
 				t.Errorf("(tt.lexer.Lex() = %v, want %v", got, tt.want)
@@ -142,13 +142,13 @@ func TestL_Current(t *testing.T) {
 				l.Take("key")
 				l.Emit(Key)
 				return nil
-			}),
+			}, nil),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.lexer.Lex()
-			fmt.Println(tt.lexer.NextToken())
+			fmt.Println(tt.lexer.PopToken())
 
 		})
 	}

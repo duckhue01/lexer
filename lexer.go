@@ -31,7 +31,7 @@ const (
 )
 
 // New creates new lexer instance
-func New(src string, initState StateFunc) *L {
+func New(src string, initState StateFunc, funcHandler func(e string)) *L {
 	return &L{
 		source:    src,
 		start:     0,
@@ -129,9 +129,9 @@ func (l *L) Rewind() {
 	}
 }
 
-// NextToken returns the next token from the lexer and a value to denote whether
+// PopToken returns the next token from the lexer and a value to denote whether
 // or not the token is finished.
-func (l *L) NextToken() (*Token, bool) {
+func (l *L) PopToken() (*Token, bool) {
 	if tok, ok := <-l.tokens; ok {
 		return &tok, false
 	} else {

@@ -16,6 +16,7 @@ type L struct {
 	rewind       runeStack
 	buffer       []rune
 	stop         bool
+	charC        map[rune]int
 }
 
 type TokenType int
@@ -46,6 +47,7 @@ func New(src string, initState StateFunc, funcHandler func(e string)) *L {
 		rewind:       newRuneStack(),
 		buffer:       make([]rune, 0, DefaultBufferCap),
 		ErrorHandler: funcHandler,
+		charC:        make(map[rune]int),
 	}
 }
 
@@ -165,6 +167,21 @@ func (l *L) Skip() {
 	if len(l.buffer) > 0 {
 		l.buffer = l.buffer[:len(l.buffer)-1]
 	}
+}
+
+func (l *L) Inc(c rune) {
+	l.charC[c]++
+
+}
+
+func (l *L) Dec(c rune) {
+	if l.charC[c] > 0 {
+		l.charC[c]--
+	}
+}
+
+func (l *L) Count(c rune) int {
+	return l.charC[c]
 }
 
 // Stop stop the lexer engine

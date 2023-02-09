@@ -14,6 +14,7 @@ type L struct {
 	Err          error
 	ErrorHandler func(e string)
 	rewind       runeStack
+	buffer       []rune
 }
 
 type TokenType int
@@ -26,8 +27,11 @@ type Token struct {
 type StateFunc func(*L) StateFunc
 
 const (
-	EOFRune    rune      = -1
-	EmptyToken TokenType = 0
+	EOFRune rune = -1
+)
+
+const (
+	DefaultBufferCap = 10
 )
 
 // New creates new lexer instance
@@ -39,6 +43,7 @@ func New(src string, initState StateFunc, funcHandler func(e string)) *L {
 		tokens:    make(chan Token),
 		initState: initState,
 		rewind:    newRuneStack(),
+		buffer:    make([]rune, 0, DefaultBufferCap),
 	}
 }
 
@@ -56,8 +61,7 @@ func (l *L) run() {
 	close(l.tokens)
 }
 
-// Next pulls the next rune from the Lexer and returns it, moving the pos
-// forward in the source.
+// Next pulls the next rune from the Lexer and returns it, moving the pos forward in the source.
 func (l *L) Next() rune {
 	var (
 		r rune
@@ -71,13 +75,12 @@ func (l *L) Next() rune {
 	}
 	l.pos += s
 	l.rewind.push(r)
+	l.buffer = append(l.buffer, r)
 
 	return r
 }
 
-// Take receives a string containing all acceptable strings and will continue
-// over each consecutive character in the source until a token not in the given
-// string is encountered. This should be used to quickly pull token parts.
+// Take receives a string containing all acceptable strings and will continue over each consecutive character in the source until a token not in the given string is encountered. This should be used to quickly pull token parts.
 func (l *L) Take(chars string) {
 	r := l.Next()
 	for strings.ContainsRune(chars, r) {
@@ -86,8 +89,7 @@ func (l *L) Take(chars string) {
 	l.Rewind() // last next wasn't a match
 }
 
-// Emit will receive a token type and push a new token with the current analyzed
-// value into the tokens channel.
+// Emit will receive a token type and push a new token with the current analyzed value into the tokens channel.
 func (l *L) Emit(t TokenType) {
 	tok := Token{
 		Typ: t,
@@ -96,10 +98,11 @@ func (l *L) Emit(t TokenType) {
 	l.tokens <- tok
 	l.start = l.pos
 	l.rewind.clear()
+	l.buffer = make([]rune, 0, DefaultBufferCap)
+
 }
 
-// Peek performs a Next operation immediately followed by a Rewind returning the
-// peeked rune.
+// Peek performs a Next operation immediately followed by a Rewind returning the peeked rune.
 func (l *L) Peek() rune {
 	r := l.Next()
 	l.Rewind()
@@ -107,19 +110,20 @@ func (l *L) Peek() rune {
 	return r
 }
 
-// Ignore clears the rewind stack and then sets the current start pos
-// to the current pos in the source which effectively ignores the section
-// of the source being analyzed.
+// Ignore clears the rewind stack and then sets the current start pos to the current pos in the source which effectively ignores the section of the source being analyzed.
 func (l *L) Ignore() {
 	l.rewind.clear()
+	l.buffer = make([]rune, 0, DefaultBufferCap)
 	l.start = l.pos
 }
 
-// Rewind will take the last rune read (if any) and rewind back. Rewinds can
-// occur more than once per call to Next but you can never rewind past the
-// last point a token was emitted.
+// Rewind will take the last rune read (if any) and rewind back. Rewinds can occur more than once per call to Next but you can never rewind past the last point a token was emitted.
 func (l *L) Rewind() {
 	r := l.rewind.pop()
+	if len(l.buffer) > 0 {
+		l.buffer = l.buffer[:len(l.buffer)-1]
+	}
+
 	if r > EOFRune {
 		size := utf8.RuneLen(r)
 		l.pos -= size
@@ -129,9 +133,8 @@ func (l *L) Rewind() {
 	}
 }
 
-// PopToken returns the next token from the lexer and a value to denote whether
-// or not the token is finished.
-func (l *L) PopToken() (*Token, bool) {
+// NextToken returns the next token from the lexer and a value to denote whether or not the token is finished.
+func (l *L) NextToken() (*Token, bool) {
 	if tok, ok := <-l.tokens; ok {
 		return &tok, false
 	} else {
@@ -139,7 +142,7 @@ func (l *L) PopToken() (*Token, bool) {
 	}
 }
 
-// Error create new error instance and assign it to Err property
+// Error create new error instance and assign it to Err property.
 func (l *L) Error(e string) {
 	if l.ErrorHandler != nil {
 		l.Err = errors.New(e)
@@ -149,8 +152,14 @@ func (l *L) Error(e string) {
 	}
 }
 
-// todo: fix race condition problem when Current is used outside package
 // Current returns the value being analyzed at this moment.
 func (l *L) Current() string {
-	return l.source[l.start:l.pos]
+	return string(l.buffer)
+}
+
+// Skip skips the char at this time and move the pos to the next index.
+func (l *L) Skip() {
+	if len(l.buffer) > 0 {
+		l.buffer = l.buffer[:len(l.buffer)-1]
+	}
 }

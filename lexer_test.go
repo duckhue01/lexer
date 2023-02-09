@@ -1,7 +1,6 @@
 package lexer_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/duckhue01/lexer"
@@ -116,40 +115,42 @@ func TestStateFunc(t *testing.T) {
 				Val: "k",
 			},
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.lexer.Lex()
-			got, _ := tt.lexer.PopToken()
-
-			if !cmp.Equal(got, tt.want) {
-				t.Errorf("(tt.lexer.Lex() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestL_Current(t *testing.T) {
-	tests := []struct {
-		name  string
-		want  string
-		lexer *lexer.L
-	}{
 		{
-			name: "test current function with init lexer",
-			want: "",
+			name: "state func take three first char and skip one",
 			lexer: lexer.New("key=value", func(l *lexer.L) lexer.StateFunc {
-				l.Take("key")
+				l.Next()
+				l.Next()
+				l.Next()
+				l.Skip()
 				l.Emit(Key)
 				return nil
 			}, nil),
+			want: &lexer.Token{
+				Typ: Key,
+				Val: "ke",
+			},
+		},
+		{
+			name: "state func through error",
+			lexer: lexer.New("key=value", func(l *lexer.L) lexer.StateFunc {
+				l.ErrorHandler = func(e string) {
+
+				}
+				l.Error("asdasd")
+
+				return nil
+			}, nil),
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.lexer.Lex()
-			fmt.Println(tt.lexer.PopToken())
+			got, _ := tt.lexer.NextToken()
 
+			if !cmp.Equal(got, tt.want) {
+				t.Errorf("(tt.lexer.Lex() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

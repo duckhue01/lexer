@@ -15,6 +15,7 @@ type L struct {
 	ErrorHandler func(e string)
 	rewind       runeStack
 	buffer       []rune
+	stop         bool
 }
 
 type TokenType int
@@ -37,13 +38,14 @@ const (
 // New creates new lexer instance
 func New(src string, initState StateFunc, funcHandler func(e string)) *L {
 	return &L{
-		source:    src,
-		start:     0,
-		pos:       0,
-		tokens:    make(chan Token),
-		initState: initState,
-		rewind:    newRuneStack(),
-		buffer:    make([]rune, 0, DefaultBufferCap),
+		source:       src,
+		start:        0,
+		pos:          0,
+		tokens:       make(chan Token),
+		initState:    initState,
+		rewind:       newRuneStack(),
+		buffer:       make([]rune, 0, DefaultBufferCap),
+		ErrorHandler: funcHandler,
 	}
 }
 
@@ -54,7 +56,7 @@ func (l *L) Lex() {
 
 func (l *L) run() {
 	state := l.initState
-	for state != nil {
+	for state != nil && !l.stop {
 		state = state(l)
 	}
 
@@ -147,6 +149,7 @@ func (l *L) Error(e string) {
 	if l.ErrorHandler != nil {
 		l.Err = errors.New(e)
 		l.ErrorHandler(e)
+		l.Stop()
 	} else {
 		panic(e)
 	}
@@ -162,4 +165,9 @@ func (l *L) Skip() {
 	if len(l.buffer) > 0 {
 		l.buffer = l.buffer[:len(l.buffer)-1]
 	}
+}
+
+// Stop stop the lexer engine
+func (l *L) Stop() {
+	l.stop = true
 }
